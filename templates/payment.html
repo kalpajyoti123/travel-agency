@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Payment | Wanderer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #F56A6A;
+            --primary-light: #fff5f5;
+            --dark: #1a1a1a;
+            --grey: #f8f9fa;
+            --text: #2d3436;
+            --shadow: 0 20px 60px rgba(0,0,0,0.08);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--grey);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .payment-card {
+            background: white;
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 35px;
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-indicator {
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        h1 { font-size: 26px; margin: 0 0 5px 0; color: var(--dark); font-weight: 700; }
+        .trip-name { color: #888; font-size: 14px; font-weight: 500; margin-bottom: 30px; }
+
+        .price-container {
+            background: linear-gradient(145deg, #ffffff, #fcfcfc);
+            margin: 0 0 30px 0;
+            padding: 30px 20px;
+            border-radius: 20px;
+            border: 1px solid #eee;
+            position: relative;
+        }
+
+        .amount { font-size: 42px; font-weight: 700; color: var(--dark); letter-spacing: -1px; }
+        .currency { font-size: 20px; vertical-align: top; margin-right: 2px; color: #999; font-weight: 500; position: relative; top: 5px; }
+        .price-label { font-size: 12px; color: #aaa; margin-top: 5px; font-weight: 500; }
+
+        .payment-methods { text-align: left; margin-bottom: 25px; }
+        .section-label { font-size: 12px; font-weight: 700; color: #ccc; text-transform: uppercase; margin-bottom: 15px; display: block; letter-spacing: 0.5px; }
+        
+        .method {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 16px;
+            border: 1px solid #eee;
+            border-radius: 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .method.active { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 4px 15px rgba(245, 106, 106, 0.1); }
+        .method:hover { border-color: var(--primary); transform: translateY(-2px); }
+
+        .icon-box { width: 40px; height: 40px; background: #f4f4f4; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: 0.2s; }
+        .method.active .icon-box { background: white; color: var(--primary); }
+
+        .method-info strong { display: block; font-size: 14px; color: var(--dark); margin-bottom: 2px; }
+        .method-info span { font-size: 11px; color: #888; }
+
+        .pay-btn {
+            width: 100%;
+            background: var(--dark);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .pay-btn:hover {
+            background: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(245, 106, 106, 0.25);
+        }
+
+        .secure-lock {
+            margin-top: 25px;
+            font-size: 11px;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 480px) {
+            .payment-card { padding: 30px 20px; width: 90%; }
+            .amount { font-size: 36px; }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #121212; color: #f0f0f0; }
+            .payment-card { background: #1e1e1e; }
+            h1, .amount, .method-info strong { color: #f0f0f0; }
+            .price-container { background: #2d2d2d; border-color: #333; }
+            .method { background: #2d2d2d; border-color: #333; }
+            .trip-name { color: #aaa; }
+            .step-indicator { background: rgba(245, 106, 106, 0.2); }
+            .secure-lock { color: #666; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="payment-card">
+        <span class="step-indicator">Checkout</span>
+        <h1>Finalize Booking</h1>
+        <div class="trip-name">{{ trip }} Expedition</div>
+
+        <div class="price-container">
+            <span class="currency">₹</span><span class="amount">{{ amount }}</span>
+            <div class="price-label">Total Amount (Including Taxes)</div>
+        </div>
+
+        <button class="pay-btn" onclick="startPayment()">Pay Now &rarr;</button>
+
+        <div class="secure-lock">
+            🔒 256-bit SSL Secure Checkout
+        </div>
+    </div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    function startPayment() {
+        var options = {
+            "key": "{{ key_id }}", 
+            "amount": "{{ order.amount }}", 
+            "currency": "INR",
+            "name": "Wanderer Travels",
+            "description": "Payment for {{ trip }}",
+            "image": "/static/wp-content/uploads/2021/01/966b96df-logo.png",
+            "order_id": "{{ order.id }}", 
+            "handler": function (response){
+                // Create a form to submit payment details to backend for verification
+                var form = document.createElement('form');
+                form.action = '/payment/verify';
+                form.method = 'POST';
+                
+                var inputs = [
+                    {name: 'razorpay_payment_id', value: response.razorpay_payment_id},
+                    {name: 'razorpay_order_id', value: response.razorpay_order_id},
+                    {name: 'razorpay_signature', value: response.razorpay_signature}
+                ];
+                
+                inputs.forEach(function(input) {
+                    var i = document.createElement('input');
+                    i.type = 'hidden';
+                    i.name = input.name;
+                    i.value = input.value;
+                    form.appendChild(i);
+                });
+                
+                document.body.appendChild(form);
+                form.submit();
+            },
+            "prefill": {
+                "name": "{{ user_name }}",
+                "email": "{{ user_email }}"
+            },
+            "theme": {
+                "color": "#F56A6A"
+            }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.open();
+        
+        rzp1.on('payment.failed', function (response){
+            alert("Payment Failed: " + response.error.description);
+        });
+    }
+</script>
+    
+</body>
+</html>
