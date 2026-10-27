@@ -41,6 +41,9 @@
         .photo-card-info { padding: 12px; }
         .photo-card-info p { margin: 0 0 10px; overflow-wrap: anywhere; font-size: 13px; }
         .photo-card-info form { margin: 0; }
+        .review-edit-form { display: grid; gap: 8px; min-width: 240px; }
+        .review-edit-form input, .review-edit-form select, .review-edit-form textarea { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ddd; border-radius: 7px; font: inherit; }
+        .review-edit-form textarea { min-height: 80px; resize: vertical; }
         @media (max-width: 700px) {
             body { padding: 10px; }
             .admin-container { padding: 18px; }
@@ -110,6 +113,38 @@
             <p style="color:#666;">No traveler photos uploaded yet.</p>
             {% endfor %}
         </div>
+
+        <h2>Traveler Stories Reviews</h2>
+        <p style="color:#666; font-size:13px;">Reviews submitted on trip pages appear on the homepage automatically. Edit or remove them here.</p>
+        <table>
+            <thead><tr><th>Trip</th><th>Edit homepage story</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for review in reviews %}
+                <tr>
+                    <td>{{ review.trip_name or 'Traveler story' }}</td>
+                    <td>
+                        <form class="review-edit-form" action="{{ url_for('update_traveler_review', review_id=review._id) }}" method="POST">
+                            <input type="text" name="user_name" value="{{ review.user_name or 'Traveler' }}" maxlength="80" aria-label="Traveler name" required>
+                            <select name="rating" aria-label="Review rating" required>
+                                {% for rating in range(1, 6) %}
+                                <option value="{{ rating }}" {% if review.rating|int == rating %}selected{% endif %}>{{ rating }} / 5 stars</option>
+                                {% endfor %}
+                            </select>
+                            <textarea name="comment" maxlength="1000" aria-label="Review text" required>{{ review.comment }}</textarea>
+                            <button type="submit" class="btn-action btn-edit">Save Story</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form action="{{ url_for('delete_traveler_review', review_id=review._id) }}" method="POST" onsubmit="return confirm('Remove this review from Traveler Stories?');">
+                            <button type="submit" class="btn-action btn-delete">Remove Review</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" style="text-align:center; padding:20px;">No traveler reviews have been submitted yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
         <h2>Active Trips</h2>
         <table>

@@ -121,7 +121,16 @@ def home():
     
     all_trips = list(trips_collection.find(query))
     gallery_photos = list(gallery_collection.find().sort('_id', -1).limit(12)) if gallery_collection is not None else []
-    return render_template('index.html', trips=all_trips, search_query=search_query, gallery_photos=gallery_photos)
+    traveler_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(6)) if reviews_collection is not None else []
+    traveler_review_count = reviews_collection.count_documents({}) if reviews_collection is not None else 0
+    return render_template(
+        'index.html',
+        trips=all_trips,
+        search_query=search_query,
+        gallery_photos=gallery_photos,
+        traveler_reviews=traveler_reviews,
+        traveler_review_count=traveler_review_count
+    )
 
 @app.route('/itinerary/<path:trip_name>')
 def trip_details(trip_name):
@@ -175,16 +184,27 @@ def trip_details(trip_name):
 def submit_review():
     if reviews_collection is None: return "Database Connection Error", 500
     
-    trip_name = request.form.get('trip_name')
-    rating = request.form.get('rating')
-    comment = request.form.get('comment')
-    user_name = request.form.get('user_name') or "Traveler"
-    
-    if rating:
-        reviews_collection.insert_one({
-            "trip_name": trip_name, "user_name": user_name, "rating": int(rating), "comment": comment, "date": datetime.datetime.now().strftime("%Y-%m-%d")
-        })
-        
+    trip_name = request.form.get('trip_name', '').strip()
+    user_name = request.form.get('user_name', 'Traveler').strip() or 'Traveler'
+    comment = request.form.get('comment', '').strip()
+    try:
+        rating = int(request.form.get('rating', ''))
+    except (TypeError, ValueError):
+        rating = 0
+
+    if not trip_name or not comment or len(user_name) > 80 or len(comment) > 1000 or rating not in range(1, 6):
+        flash("Enter your name, a rating from 1 to 5, and a review under 1,000 characters.", "error")
+        if trip_name:
+            return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
+        return redirect(url_for('home'))
+
+    reviews_collection.insert_one({
+        "trip_name": trip_name,
+        "user_name": user_name,
+        "rating": rating,
+        "comment": comment,
+        "date": datetime.datetime.now().strftime("%Y-%m-%d")
+    })
     return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
 
 @app.route('/book', methods=['POST'])
@@ -437,7 +457,7 @@ def admin_page():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
-    if bookings_collection is None or trips_collection is None or gallery_collection is None:
+    if bookings_collection is None or trips_collection is None or gallery_collection is None or reviews_collection is None:
         return "Database Connection Error", 500
 
     all_bookings = list(bookings_collection.find().sort('_id', -1))
@@ -453,7 +473,60 @@ def admin_page():
     total_revenue = sum(trip_prices.get(b.get('trip'), 0) for b in all_bookings if b.get('status') == 'Confirmed')
     
     gallery_photos = list(gallery_collection.find().sort('_id', -1))
-    return render_template('admin.html', bookings=all_bookings, trips=all_trips, revenue=total_revenue, gallery_photos=gallery_photos)
+    all_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(100))
+    return render_template('admin.html', bookings=all_bookings, trips=all_trips, revenue=total_revenue, gallery_photos=gallery_photos, reviews=all_reviews)
+
+@app.route('/admin/reviews/<review_id>', methods=['POST'])
+def update_traveler_review(review_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    if reviews_collection is None:
+        return "Database Connection Error", 500
+
+    try:
+        review_object_id = ObjectId(review_id)
+    except Exception:
+        return "Invalid Review ID", 400
+
+    user_name = request.form.get('user_name', '').strip()
+    comment = request.form.get('comment', '').strip()
+    try:
+        rating = int(request.form.get('rating', ''))
+    except (TypeError, ValueError):
+        rating = 0
+
+    if not user_name or len(user_name) > 80 or not comment or len(comment) > 1000 or rating not in range(1, 6):
+        flash("Provide a name, a rating from 1 to 5, and a review under 1,000 characters.", "error")
+        return redirect(url_for('admin_page'))
+
+    result = reviews_collection.update_one(
+        {'_id': review_object_id},
+        {'$set': {'user_name': user_name, 'comment': comment, 'rating': rating}}
+    )
+    if not result.matched_count:
+        flash("That traveler review was not found.", "error")
+    else:
+        flash("Traveler story updated on the homepage.", "success")
+    return redirect(url_for('admin_page'))
+
+@app.route('/admin/reviews/<review_id>/delete', methods=['POST'])
+def delete_traveler_review(review_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    if reviews_collection is None:
+        return "Database Connection Error", 500
+
+    try:
+        review_object_id = ObjectId(review_id)
+    except Exception:
+        return "Invalid Review ID", 400
+
+    result = reviews_collection.delete_one({'_id': review_object_id})
+    if not result.deleted_count:
+        flash("That traveler review was not found.", "error")
+    else:
+        flash("Traveler story removed from the homepage.", "success")
+    return redirect(url_for('admin_page'))
 
 @app.route('/admin/traveler-photos', methods=['POST'])
 def upload_traveler_photos():

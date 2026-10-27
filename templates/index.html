@@ -98,6 +98,10 @@
         .bento-item.large { grid-row: span 2; background: var(--primary); color: white; }
         .bento-item.wide { grid-column: span 2; }
         .bento-item h3 { margin: 0; font-size: 32px; font-weight: 900; }
+        .story-rating { color: #f0b429; letter-spacing: 2px; margin-bottom: 12px; }
+        .story-quote { margin: 0; font-size: 16px; font-style: italic; line-height: 1.65; }
+        .story-author { margin-top: 16px; font-size: 13px; font-weight: 700; }
+        .story-trip { display: block; margin-top: 3px; font-size: 12px; font-weight: 400; opacity: 0.75; }
         .traveler-gallery { margin-top: 60px; }
         .traveler-gallery h3 { margin: 0 0 8px; font-size: 24px; color: var(--dark); }
         .traveler-gallery-intro { margin: 0 0 24px; color: #66736b; }
@@ -323,19 +327,22 @@
         </div>
         <div class="bento-grid">
             <div class="bento-item large reveal-up">
-                <h3>100+</h3>
-                <p>Happy travelers have joined our journeys across the Himalayas and deserts.</p>
+                <h3>{{ traveler_review_count }}</h3>
+                <p>Traveler stories shared from journeys across the Himalayas and beyond.</p>
             </div>
+            {% for review in traveler_reviews %}
+            <article class="bento-item reveal-up {% if loop.first %}wide{% endif %}">
+                <div class="story-rating" aria-label="{{ review.rating|default(0)|int }} out of 5 stars">
+                    {% for star in range(review.rating|default(0)|int) %}★{% endfor %}{% for star in range(5 - (review.rating|default(0)|int)) %}☆{% endfor %}
+                </div>
+                <p class="story-quote">“{{ review.comment }}”</p>
+                <div class="story-author">— {{ review.user_name or 'Traveler' }}<span class="story-trip">{{ review.trip_name }}</span></div>
+            </article>
+            {% else %}
             <div class="bento-item wide reveal-up">
-                <p style="font-size: 18px; font-style: italic;">"Mechuka was a dream. Everything from the stay to the local guides was perfectly managed. The bonfire nights were the highlight!"</p>
-                <strong style="margin-top: 15px;">— Ananya Sharma</strong>
+                <p class="story-quote">Traveler stories will appear here after the first trip review is shared.</p>
             </div>
-            <div class="bento-item reveal-up">
-                <p>"Truly beyond ordinary. Best offbeat travel team."</p>
-            </div>
-            <div class="bento-item reveal-up">
-                <p>"Safety and adventure perfectly balanced."</p>
-            </div>
+            {% endfor %}
         </div>
         {% if gallery_photos %}
         <div class="traveler-gallery">
