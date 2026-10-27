@@ -254,24 +254,24 @@ def create_invoice(booking, price, payment_id):
     width, height = letter
     
     # Define Colors
-    primary_color = colors.HexColor("#28a745")
+    primary_color = colors.HexColor("#0B6B3A")
     text_color = colors.HexColor("#333333")
     light_gray = colors.HexColor("#f4f4f4")
     
     # --- Header Section ---
     # Logo: Try to load from static folder, fallback to text
-    logo_path = os.path.join(app.root_path, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(app.root_path, 'static', 'images', 'wanderer-logo.png')
     logo_drawn = False
 
     # Fallback: If app.root_path fails, try current working directory
     if not os.path.exists(logo_path):
-        logo_path = os.path.join(os.getcwd(), 'static', 'img', 'logo.png')
+        logo_path = os.path.join(os.getcwd(), 'static', 'images', 'wanderer-logo.png')
     
     # Debugging for Vercel Logs
     if os.path.exists(logo_path):
         print(f"✅ Logo found at: {logo_path}, Size: {os.path.getsize(logo_path)} bytes")
         try:
-            c.drawImage(logo_path, 50, height - 100, width=120, height=50, preserveAspectRatio=True, mask='auto')
+            c.drawImage(logo_path, 50, height - 100, width=135, height=90, preserveAspectRatio=True, mask='auto')
             logo_drawn = True
         except Exception as e:
             print(f"❌ Error drawing logo: {e}")

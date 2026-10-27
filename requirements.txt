@@ -1,6 +1,6 @@
 Flask
 Flask-Mail
-pymongo[srv]
+pymongo>=4.19,<5
 python-dotenv
 razorpay
 cloudinary
