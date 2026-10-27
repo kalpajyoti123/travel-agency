@@ -58,7 +58,6 @@ bookings_collection = None
 trips_collection = None
 users_collection = None
 reviews_collection = None
-gallery_collection = None
 
 try:
     if not MONGO_URI or "replace_with" in MONGO_URI or "your_mongo_string" in MONGO_URI:
@@ -71,7 +70,6 @@ try:
     trips_collection = db['trips'] 
     users_collection = db['users']
     reviews_collection = db['reviews']
-    gallery_collection = db['traveler_photos']
     print("✅ Successfully connected to MongoDB Atlas!")
 except Exception as e:
     if "DNS query name does not exist" in str(e):
@@ -120,14 +118,12 @@ def home():
     query = {"name": {"$regex": search_query, "$options": "i"}} if search_query else {}
     
     all_trips = list(trips_collection.find(query))
-    gallery_photos = list(gallery_collection.find().sort('_id', -1).limit(12)) if gallery_collection is not None else []
     traveler_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(12)) if reviews_collection is not None else []
     traveler_review_count = reviews_collection.count_documents({}) if reviews_collection is not None else 0
     return render_template(
         'index.html',
         trips=all_trips,
         search_query=search_query,
-        gallery_photos=gallery_photos,
         traveler_reviews=traveler_reviews,
         traveler_review_count=traveler_review_count
     )
@@ -504,7 +500,7 @@ def admin_page():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
-    if bookings_collection is None or trips_collection is None or gallery_collection is None or reviews_collection is None:
+    if bookings_collection is None or trips_collection is None or reviews_collection is None:
         return "Database Connection Error", 500
 
     all_bookings = list(bookings_collection.find().sort('_id', -1))
@@ -519,9 +515,8 @@ def admin_page():
         
     total_revenue = sum(trip_prices.get(b.get('trip'), 0) for b in all_bookings if b.get('status') == 'Confirmed')
     
-    gallery_photos = list(gallery_collection.find().sort('_id', -1))
     all_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(100))
-    return render_template('admin.html', bookings=all_bookings, trips=all_trips, revenue=total_revenue, gallery_photos=gallery_photos, reviews=all_reviews)
+    return render_template('admin.html', bookings=all_bookings, trips=all_trips, revenue=total_revenue, reviews=all_reviews)
 
 @app.route('/admin/reviews/<review_id>', methods=['POST'])
 def update_traveler_review(review_id):
@@ -628,86 +623,6 @@ def delete_traveler_review_photo(review_id):
     if not result.matched_count:
         return "The photo was removed, but the review could not be updated.", 500
     flash("Traveler photo removed. The review remains published.", "success")
-    return redirect(url_for('admin_page'))
-
-@app.route('/admin/traveler-photos', methods=['POST'])
-def upload_traveler_photos():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    if gallery_collection is None:
-        return "Database Connection Error", 500
-
-    photo_files = [photo for photo in request.files.getlist('images') if photo and photo.filename]
-    if not photo_files:
-        flash("Choose at least one photo to upload.", "error")
-        return redirect(url_for('admin_page'))
-    if len(photo_files) > 12:
-        flash("Upload up to 12 photos at a time.", "error")
-        return redirect(url_for('admin_page'))
-
-    allowed_photo_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-    max_photo_size = 10 * 1024 * 1024
-    for photo in photo_files:
-        extension = photo.filename.rsplit('.', 1)[-1].lower() if '.' in photo.filename else ''
-        if extension not in allowed_photo_extensions or not (photo.mimetype or '').startswith('image/'):
-            flash(f"{photo.filename} is not a supported image. Use JPG, PNG, GIF, or WEBP.", "error")
-            return redirect(url_for('admin_page'))
-
-        photo.stream.seek(0, os.SEEK_END)
-        photo_size = photo.stream.tell()
-        photo.stream.seek(0)
-        if photo_size > max_photo_size:
-            flash(f"{photo.filename} is larger than the 10 MB limit.", "error")
-            return redirect(url_for('admin_page'))
-
-    caption = request.form.get('caption', '').strip()
-    uploaded_count = 0
-    for photo in photo_files:
-        try:
-            upload_result = cloudinary.uploader.upload(photo, folder='dhou-wanderer/traveler-stories', resource_type='image')
-            gallery_collection.insert_one({
-                'image': upload_result['secure_url'],
-                'public_id': upload_result['public_id'],
-                'caption': caption
-            })
-            uploaded_count += 1
-        except Exception as e:
-            print(f"Error uploading traveler photo {photo.filename}: {e}")
-            flash(f"Upload stopped after {uploaded_count} of {len(photo_files)} photos. Check the server logs for the failed upload.", "error")
-            return redirect(url_for('admin_page'))
-
-    flash(f"Uploaded {uploaded_count} traveler photo{'s' if uploaded_count != 1 else ''}.", "success")
-    return redirect(url_for('admin_page'))
-
-@app.route('/admin/traveler-photos/<photo_id>/delete', methods=['POST'])
-def delete_traveler_photo(photo_id):
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    if gallery_collection is None:
-        return "Database Connection Error", 500
-
-    try:
-        photo = gallery_collection.find_one({'_id': ObjectId(photo_id)})
-    except Exception:
-        return "Invalid Photo ID", 400
-    if not photo:
-        flash("That traveler photo was not found.", "error")
-        return redirect(url_for('admin_page'))
-
-    public_id = photo.get('public_id')
-    if public_id:
-        try:
-            result = cloudinary.uploader.destroy(public_id, resource_type='image')
-            if result.get('result') not in {'ok', 'not found'}:
-                flash("Cloudinary did not confirm the photo deletion.", "error")
-                return redirect(url_for('admin_page'))
-        except Exception as e:
-            print(f"Error deleting traveler photo {public_id}: {e}")
-            flash("Could not remove the photo from Cloudinary. It is still listed in the gallery.", "error")
-            return redirect(url_for('admin_page'))
-
-    gallery_collection.delete_one({'_id': ObjectId(photo_id)})
-    flash("Traveler photo removed.", "success")
     return redirect(url_for('admin_page'))
 
 @app.route('/admin/add-trip', methods=['POST'])
