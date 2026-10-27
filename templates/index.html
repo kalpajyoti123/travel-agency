@@ -277,7 +277,7 @@
                 <div class="card-body">
                     <h3>{{ trip.name }}</h3>
                     <p>₹{{ "{:,}".format(trip.price|int) }}</p>
-                    <a href="/itinerary/{{ trip.name.lower().replace(' ', '-') }}" class="btn-modern">View Details</a>
+                    <a href="{{ url_for('trip_details', trip_name=trip.name|trip_slug) }}" class="btn-modern">View Details</a>
                 </div>
             </div>
             {% else %}

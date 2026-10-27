@@ -44,6 +44,11 @@ except OSError:
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def slugify_trip_name(name):
+    return re.sub(r'[\W_]+', '-', name.strip().casefold()).strip('-')
+
+app.add_template_filter(slugify_trip_name, 'trip_slug')
+
 # --- 2. MONGODB ATLAS CONNECTION ---
 ca = certifi.where()
 MONGO_URI = os.environ.get('MONGO_URI') # Ensure this is set in your environment variables
@@ -115,13 +120,16 @@ def home():
     all_trips = list(trips_collection.find(query))
     return render_template('index.html', trips=all_trips, search_query=search_query)
 
-@app.route('/itinerary/<trip_name>')
+@app.route('/itinerary/<path:trip_name>')
 def trip_details(trip_name):
     if trips_collection is None: return "Database Connection Error", 500
     
-    # Use regex for case-insensitive matching (handles 'Bihar', 'bihar', 'Bihar Trip' vs 'bihar-trip')
-    search_name = re.escape(trip_name.replace('-', ' '))
-    trip_data = trips_collection.find_one({"name": {"$regex": f"^{search_name}$", "$options": "i"}})
+    trip_words = [re.escape(word) for word in re.split(r'[-/]+', trip_name) if word]
+    if not trip_words:
+        return "Trip not found", 404
+
+    search_name = r'^\s*[\W_]*' + r'[\W_]+'.join(trip_words) + r'[\W_]*\s*$'
+    trip_data = trips_collection.find_one({"name": {"$regex": search_name, "$options": "i"}})
     
     if not trip_data:
         return "Trip not found", 404
@@ -174,7 +182,7 @@ def submit_review():
             "trip_name": trip_name, "user_name": user_name, "rating": int(rating), "comment": comment, "date": datetime.datetime.now().strftime("%Y-%m-%d")
         })
         
-    return redirect(url_for('trip_details', trip_name=trip_name.lower().replace(' ', '-')))
+    return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
 
 @app.route('/book', methods=['POST'])
 def book_trip():
@@ -209,7 +217,7 @@ def book_trip():
     except Exception as e:
         print(f"Error: {e}")
         flash("An error occurred while processing your booking. Please try again.")
-        return redirect(url_for('trip_details', trip_name=destination.replace(' ', '-').lower()))
+        return redirect(url_for('trip_details', trip_name=slugify_trip_name(destination)))
 
 @app.route('/payment')
 def payment_page():

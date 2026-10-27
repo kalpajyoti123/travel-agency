@@ -244,13 +244,13 @@
                 {% if total_pages > 1 %}
                 <div class="pagination">
                     {% if page > 1 %}
-                    <a href="{{ url_for('trip_details', trip_name=trip.name.lower().replace(' ', '-'), page=page-1, sort=sort_option) }}#reviews-section" class="page-btn">← Previous</a>
+                    <a href="{{ url_for('trip_details', trip_name=trip.name|trip_slug, page=page-1, sort=sort_option) }}#reviews-section" class="page-btn">← Previous</a>
                     {% endif %}
                     
                     <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
                     
                     {% if page < total_pages %}
-                    <a href="{{ url_for('trip_details', trip_name=trip.name.lower().replace(' ', '-'), page=page+1, sort=sort_option) }}#reviews-section" class="page-btn">Next →</a>
+                    <a href="{{ url_for('trip_details', trip_name=trip.name|trip_slug, page=page+1, sort=sort_option) }}#reviews-section" class="page-btn">Next →</a>
                     {% endif %}
                 </div>
                 {% endif %}
