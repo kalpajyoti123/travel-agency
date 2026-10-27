@@ -122,6 +122,10 @@
         .review-date { font-size: 12px; color: #999; }
         .star-rating { color: #f1c40f; font-size: 14px; margin-top: 2px; }
         .review-text { color: #666; font-size: 15px; line-height: 1.6; margin: 0; }
+        .review-trip-photo { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: 14px; margin-top: 16px; }
+        .review-flash { padding: 10px 14px; margin-bottom: 12px; border-radius: 10px; font-size: 14px; }
+        .review-flash-success { background: #e8f3eb; color: #176B3A; }
+        .review-flash-error { background: #fff1f0; color: #a93226; }
         .verified-badge { display: inline-flex; align-items: center; gap: 3px; background: #e8f3eb; color: #176B3A; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 8px; border: 1px solid #cfe2d4; text-transform: uppercase; letter-spacing: 0.5px; }
         
         .rating-input { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 5px; margin-bottom: 15px; }
@@ -192,7 +196,12 @@
                 
                 <div class="review-card" style="background: var(--bg-body);">
                     <h4 style="margin-top: 0;">Write a Review</h4>
-                    <form action="/submit-review" method="POST">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% for category, message in messages %}
+                        <div class="review-flash review-flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endwith %}
+                    <form action="/submit-review" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="trip_name" value="{{ trip.name }}">
                         <input type="text" name="user_name" placeholder="Your Name" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; font-family: inherit; box-sizing: border-box;" required>
                         <div class="rating-input">
@@ -203,6 +212,8 @@
                             <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
                         </div>
                         <textarea name="comment" rows="3" placeholder="Share your experience..." style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; font-family: inherit; box-sizing: border-box;" required></textarea>
+                        <label for="review-photo" style="display:block; margin-bottom:8px; font-size:13px; font-weight:700; color:#666;">Add a trip photo (optional, JPG/PNG/GIF/WEBP, up to 10 MB)</label>
+                        <input id="review-photo" type="file" name="photo" accept="image/jpeg,image/png,image/gif,image/webp" style="display:block; margin-bottom:15px; max-width:100%;">
                         <button type="submit" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">Submit Review</button>
                     </form>
                 </div>
@@ -234,6 +245,9 @@
                             </div>
                         </div>
                         <p class="review-text">{{ review.comment }}</p>
+                        {% if review.photo_url %}
+                        <img class="review-trip-photo" src="{{ review.photo_url }}" alt="Trip photo shared by {{ review.user_name }}" loading="lazy">
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}

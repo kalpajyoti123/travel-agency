@@ -44,6 +44,7 @@
         .review-edit-form { display: grid; gap: 8px; min-width: 240px; }
         .review-edit-form input, .review-edit-form select, .review-edit-form textarea { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #ddd; border-radius: 7px; font: inherit; }
         .review-edit-form textarea { min-height: 80px; resize: vertical; }
+        .review-photo-preview { display: block; width: 110px; height: 85px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
         @media (max-width: 700px) {
             body { padding: 10px; }
             .admin-container { padding: 18px; }
@@ -117,11 +118,21 @@
         <h2>Traveler Stories Reviews</h2>
         <p style="color:#666; font-size:13px;">Reviews submitted on trip pages appear on the homepage automatically. Edit or remove them here.</p>
         <table>
-            <thead><tr><th>Trip</th><th>Edit homepage story</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Trip</th><th>Moment</th><th>Edit homepage story</th><th>Actions</th></tr></thead>
             <tbody>
                 {% for review in reviews %}
                 <tr>
                     <td>{{ review.trip_name or 'Traveler story' }}</td>
+                    <td>
+                        {% if review.photo_url %}
+                        <img class="review-photo-preview" src="{{ review.photo_url }}" alt="Photo shared by {{ review.user_name or 'a traveler' }}" loading="lazy">
+                        <form action="{{ url_for('delete_traveler_review_photo', review_id=review._id) }}" method="POST" onsubmit="return confirm('Remove this trip photo but keep the review?');">
+                            <button type="submit" class="btn-action btn-delete">Remove Moment</button>
+                        </form>
+                        {% else %}
+                        <span style="color:#888; font-size:12px;">No photo</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <form class="review-edit-form" action="{{ url_for('update_traveler_review', review_id=review._id) }}" method="POST">
                             <input type="text" name="user_name" value="{{ review.user_name or 'Traveler' }}" maxlength="80" aria-label="Traveler name" required>
@@ -141,7 +152,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="3" style="text-align:center; padding:20px;">No traveler reviews have been submitted yet.</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:20px;">No traveler reviews have been submitted yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -121,7 +121,7 @@ def home():
     
     all_trips = list(trips_collection.find(query))
     gallery_photos = list(gallery_collection.find().sort('_id', -1).limit(12)) if gallery_collection is not None else []
-    traveler_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(6)) if reviews_collection is not None else []
+    traveler_reviews = list(reviews_collection.find().sort([('date', -1), ('_id', -1)]).limit(12)) if reviews_collection is not None else []
     traveler_review_count = reviews_collection.count_documents({}) if reviews_collection is not None else 0
     return render_template(
         'index.html',
@@ -198,13 +198,60 @@ def submit_review():
             return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
         return redirect(url_for('home'))
 
-    reviews_collection.insert_one({
+    review_photo = request.files.get('photo')
+    photo_url = None
+    photo_public_id = None
+    if review_photo and review_photo.filename:
+        allowed_photo_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+        extension = review_photo.filename.rsplit('.', 1)[-1].lower() if '.' in review_photo.filename else ''
+        if extension not in allowed_photo_extensions or (review_photo.mimetype or '').lower() not in {
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp'
+        }:
+            flash("Trip photos must be JPG, PNG, GIF, or WEBP images.", "error")
+            return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
+
+        review_photo.stream.seek(0, os.SEEK_END)
+        photo_size = review_photo.stream.tell()
+        review_photo.stream.seek(0)
+        if photo_size > 10 * 1024 * 1024:
+            flash("Trip photos must be 10 MB or smaller.", "error")
+            return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
+
+        try:
+            upload_result = cloudinary.uploader.upload(
+                review_photo,
+                folder='dhou-wanderer/traveler-stories',
+                resource_type='image'
+            )
+            photo_url = upload_result['secure_url']
+            photo_public_id = upload_result['public_id']
+        except Exception as e:
+            print(f"Error uploading review photo: {e}")
+            flash("Your photo could not be uploaded. Please try again or submit without it.", "error")
+            return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
+
+    review_document = {
         "trip_name": trip_name,
         "user_name": user_name,
         "rating": rating,
         "comment": comment,
         "date": datetime.datetime.now().strftime("%Y-%m-%d")
-    })
+    }
+    if photo_url and photo_public_id:
+        review_document.update({'photo_url': photo_url, 'photo_public_id': photo_public_id})
+
+    try:
+        reviews_collection.insert_one(review_document)
+    except Exception as e:
+        print(f"Error saving traveler review: {e}")
+        if photo_public_id:
+            try:
+                cloudinary.uploader.destroy(photo_public_id, resource_type='image')
+            except Exception as cleanup_error:
+                print(f"Error cleaning up review photo {photo_public_id}: {cleanup_error}")
+        return "Could not save your review. Please try again.", 500
+
+    flash("Thanks for sharing your trip story!", "success")
     return redirect(url_for('trip_details', trip_name=slugify_trip_name(trip_name)))
 
 @app.route('/book', methods=['POST'])
@@ -521,11 +568,66 @@ def delete_traveler_review(review_id):
     except Exception:
         return "Invalid Review ID", 400
 
+    review = reviews_collection.find_one({'_id': review_object_id})
+    if not review:
+        flash("That traveler review was not found.", "error")
+        return redirect(url_for('admin_page'))
+    photo_public_id = review.get('photo_public_id')
+    if photo_public_id:
+        try:
+            result = cloudinary.uploader.destroy(photo_public_id, resource_type='image')
+            if result.get('result') not in {'ok', 'not found'}:
+                flash("Cloudinary did not confirm removal of the review photo; the review was kept.", "error")
+                return redirect(url_for('admin_page'))
+        except Exception as e:
+            print(f"Error deleting review photo {photo_public_id}: {e}")
+            flash("Could not remove the review photo from Cloudinary; the review was kept.", "error")
+            return redirect(url_for('admin_page'))
+
     result = reviews_collection.delete_one({'_id': review_object_id})
     if not result.deleted_count:
+        return "Review photo was removed, but the review could not be deleted.", 500
+    flash("Traveler story removed from the homepage.", "success")
+    return redirect(url_for('admin_page'))
+
+@app.route('/admin/reviews/<review_id>/photo/delete', methods=['POST'])
+def delete_traveler_review_photo(review_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    if reviews_collection is None:
+        return "Database Connection Error", 500
+
+    try:
+        review_object_id = ObjectId(review_id)
+    except Exception:
+        return "Invalid Review ID", 400
+
+    review = reviews_collection.find_one({'_id': review_object_id})
+    if not review:
         flash("That traveler review was not found.", "error")
-    else:
-        flash("Traveler story removed from the homepage.", "success")
+        return redirect(url_for('admin_page'))
+    photo_public_id = review.get('photo_public_id')
+    if not photo_public_id:
+        flash("This review has no uploaded photo to remove.", "error")
+        return redirect(url_for('admin_page'))
+
+    try:
+        result = cloudinary.uploader.destroy(photo_public_id, resource_type='image')
+        if result.get('result') not in {'ok', 'not found'}:
+            flash("Cloudinary did not confirm removal of the review photo.", "error")
+            return redirect(url_for('admin_page'))
+    except Exception as e:
+        print(f"Error deleting review photo {photo_public_id}: {e}")
+        flash("Could not remove the review photo from Cloudinary.", "error")
+        return redirect(url_for('admin_page'))
+
+    result = reviews_collection.update_one(
+        {'_id': review_object_id},
+        {'$unset': {'photo_url': '', 'photo_public_id': ''}}
+    )
+    if not result.matched_count:
+        return "The photo was removed, but the review could not be updated.", 500
+    flash("Traveler photo removed. The review remains published.", "success")
     return redirect(url_for('admin_page'))
 
 @app.route('/admin/traveler-photos', methods=['POST'])

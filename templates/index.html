@@ -93,10 +93,20 @@
         .search-input:focus { border-color: var(--primary); box-shadow: 0 5px 20px rgba(11, 107, 58, 0.15); }
 
         /* --- BENTO TESTIMONIALS --- */
-        .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 180px; gap: 20px; margin-top: 40px; }
-        .bento-item { background: var(--grey); border-radius: 20px; padding: 30px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-        .bento-item.large { grid-row: span 2; background: var(--primary); color: white; }
-        .bento-item.wide { grid-column: span 2; }
+        .stories-layout { display: grid; grid-template-columns: minmax(180px, 0.7fr) minmax(0, 2.3fr); gap: 24px; align-items: stretch; margin-top: 40px; }
+        .story-count { background: var(--primary); color: white; border-radius: 20px; padding: 30px; display: flex; flex-direction: column; justify-content: center; }
+        .story-count h3 { margin: 0; font-size: 32px; font-weight: 900; }
+        .story-carousel-wrap { min-width: 0; }
+        .story-carousel-controls { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
+        .story-carousel-button { width: 42px; height: 42px; border: 1px solid #dce5de; border-radius: 50%; background: white; color: var(--dark); font-size: 20px; cursor: pointer; }
+        .story-carousel-button:hover { background: var(--primary); color: white; }
+        .story-carousel { display: flex; gap: 18px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-bottom: 12px; }
+        .story-slide { flex: 0 0 calc(50% - 9px); min-width: 0; min-height: 230px; box-sizing: border-box; background: var(--grey); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; scroll-snap-align: start; }
+        .story-rating { color: #d99a00; letter-spacing: 2px; margin-bottom: 12px; }
+        .story-quote { margin: 0; font-size: 16px; font-style: italic; line-height: 1.65; }
+        .story-author { margin-top: auto; padding-top: 16px; font-size: 13px; font-weight: 700; }
+        .story-trip { display: block; margin-top: 3px; font-size: 12px; font-weight: 400; opacity: 0.75; }
+        .story-trip-photo { display: block; width: 100%; height: 180px; margin: 18px 0 0; object-fit: cover; border-radius: 14px; }
         .bento-item h3 { margin: 0; font-size: 32px; font-weight: 900; }
         .story-rating { color: #f0b429; letter-spacing: 2px; margin-bottom: 12px; }
         .story-quote { margin: 0; font-size: 16px; font-style: italic; line-height: 1.65; }
@@ -198,8 +208,9 @@
     <style>
         /* --- MOBILE OPTIMIZATION --- */
         @media (max-width: 768px) {
-            .bento-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
-            .bento-item.large, .bento-item.wide { grid-column: span 1; grid-row: auto; }
+            .stories-layout { grid-template-columns: 1fr; }
+            .story-count { min-height: 130px; }
+            .story-slide { flex-basis: 88%; }
             .hero-content h1 { font-size: 3rem; }
             .section-padding { padding: 60px 5%; }
             .newsletter { margin: 40px 5%; padding: 40px 20px; }
@@ -325,24 +336,37 @@
             <h2>Traveler Stories</h2>
             <p>What the tribe says about our journeys.</p>
         </div>
-        <div class="bento-grid">
-            <div class="bento-item large reveal-up">
+        <div class="stories-layout">
+            <div class="story-count reveal-up">
                 <h3>{{ traveler_review_count }}</h3>
                 <p>Traveler stories shared from journeys across the Himalayas and beyond.</p>
             </div>
-            {% for review in traveler_reviews %}
-            <article class="bento-item reveal-up {% if loop.first %}wide{% endif %}">
-                <div class="story-rating" aria-label="{{ review.rating|default(0)|int }} out of 5 stars">
-                    {% for star in range(review.rating|default(0)|int) %}★{% endfor %}{% for star in range(5 - (review.rating|default(0)|int)) %}☆{% endfor %}
+            <div class="story-carousel-wrap">
+                {% if traveler_reviews|length > 1 %}
+                <div class="story-carousel-controls">
+                    <button class="story-carousel-button" type="button" data-story-direction="-1" aria-label="Previous traveler story">‹</button>
+                    <button class="story-carousel-button" type="button" data-story-direction="1" aria-label="Next traveler story">›</button>
                 </div>
-                <p class="story-quote">“{{ review.comment }}”</p>
-                <div class="story-author">— {{ review.user_name or 'Traveler' }}<span class="story-trip">{{ review.trip_name }}</span></div>
-            </article>
-            {% else %}
-            <div class="bento-item wide reveal-up">
-                <p class="story-quote">Traveler stories will appear here after the first trip review is shared.</p>
+                {% endif %}
+                <div class="story-carousel" id="travelerStories" aria-label="Traveler stories; swipe or use the arrow buttons">
+                    {% for review in traveler_reviews %}
+                    <article class="story-slide reveal-up">
+                        <div class="story-rating" aria-label="{{ review.rating|default(0)|int }} out of 5 stars">
+                            {% for star in range(review.rating|default(0)|int) %}★{% endfor %}{% for star in range(5 - (review.rating|default(0)|int)) %}☆{% endfor %}
+                        </div>
+                        <p class="story-quote">“{{ review.comment }}”</p>
+                        {% if review.photo_url %}
+                        <img class="story-trip-photo" src="{{ review.photo_url }}" alt="Trip photo shared by {{ review.user_name or 'a traveler' }}" loading="lazy">
+                        {% endif %}
+                        <div class="story-author">— {{ review.user_name or 'Traveler' }}<span class="story-trip">{{ review.trip_name }}</span></div>
+                    </article>
+                    {% else %}
+                    <article class="story-slide">
+                        <p class="story-quote">Traveler stories will appear here after the first trip review is shared.</p>
+                    </article>
+                    {% endfor %}
+                </div>
             </div>
-            {% endfor %}
         </div>
         {% if gallery_photos %}
         <div class="traveler-gallery">
@@ -421,6 +445,17 @@
         }, { threshold: 0.1 });
 
         document.querySelectorAll('.reveal-left, .reveal-right, .reveal-up').forEach(el => observer.observe(el));
+
+        const storyCarousel = document.getElementById('travelerStories');
+        document.querySelectorAll('[data-story-direction]').forEach(button => {
+            button.addEventListener('click', () => {
+                if (!storyCarousel) return;
+                storyCarousel.scrollBy({
+                    left: Number(button.dataset.storyDirection) * storyCarousel.clientWidth * 0.85,
+                    behavior: 'smooth'
+                });
+            });
+        });
 
         const heroContent = document.querySelector('.hero-content');
         const heroBg = document.getElementById('heroBg');
